@@ -2,7 +2,6 @@ from rest_framework import viewsets
 from .models import Cliente, Equipamento, OrdemServico
 from .serializers import ClienteSerializer, EquipamentoSerializer, OrdemServicoSerializer
 
-# Verifique se o nome da classe é EXATAMENTE ClienteViewSet (com C, V e S maiúsculos)
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer

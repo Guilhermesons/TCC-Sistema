@@ -9,3 +9,19 @@ node_modules/
 .env*.local
 .DS_Store
 .vercel
+# Python / Django
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+build/
+
+# IDEs
+.vscode/
+.idea/
