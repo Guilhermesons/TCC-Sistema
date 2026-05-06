@@ -1,37 +1,27 @@
 from django.db import models
 
 class Cliente(models.Model):
-    nome = models.CharField(max_length=200)
-    cpf_cnpj = models.CharField(max_length=20, unique=True)
-    telefone = models.CharField(max_length=15)
-    email = models.EmailField(blank=True, null=True)
+    name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField()
+    address = models.TextField()
+    createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.nome
+        return self.name
 
 class Equipamento(models.Model):
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='equipamentos')
-    nome = models.CharField(max_length=100) # Ex: Notebook Dell G15
-    marca = models.CharField(max_length=50)
-    numero_serie = models.CharField(max_length=100, blank=True)
-
-    def __str__(self):
-        return f"{self.nome} - {self.cliente.nome}"
+    description = models.CharField(max_length=255)
+    brand = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    serialNumber = models.CharField(max_length=100)
+    owner = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='equipamentos')
+    createdAt = models.DateTimeField(auto_now_add=True)
 
 class OrdemServico(models.Model):
-    STATUS_CHOICES = [
-        ('ABERTO', 'Aberto'),
-        ('EM_ANDAMENTO', 'Em Andamento'),
-        ('CONCLUIDO', 'Concluído'),
-        ('CANCELADO', 'Cancelado'),
-    ]
-
-    equipamento = models.ForeignKey(Equipamento, on_delete=models.CASCADE)
-    descricao_problema = models.TextField()
-    relatorio_tecnico = models.TextField(blank=True)
-    valor_total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ABERTO')
-    data_criacao = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"OS {self.id} - {self.equipamento.nome}"
+    description = models.TextField()
+    status = models.CharField(max_length=20, default='PENDING')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    client = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    equipment = models.ForeignKey(Equipamento, on_delete=models.CASCADE)
+    createdAt = models.DateTimeField(auto_now_add=True)

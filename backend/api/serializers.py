@@ -4,6 +4,14 @@ from .models import Cliente, Equipamento, OrdemServico
 class ClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cliente
-        fields = '__all__'
+        fields = ['id', 'name', 'phone', 'email', 'address', 'createdAt']
 
-# Repita o padrão acima para EquipamentoSerializer e OrdemServicoSerializer
+class EquipamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipamento
+        fields = ['id', 'description', 'brand', 'model', 'serialNumber', 'owner', 'createdAt']
+
+class OrdemServicoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrdemServico
+        fields = ['id', 'description', 'status', 'price', 'client', 'equipment', 'createdAt']

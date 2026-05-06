@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from .models import Cliente, Equipamento, OrdemServico
+# backend/api/views.py
 from .serializers import ClienteSerializer, EquipamentoSerializer, OrdemServicoSerializer
 
 class ClienteViewSet(viewsets.ModelViewSet):

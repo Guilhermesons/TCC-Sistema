@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import api from '@/services/api' // Certifique-se de que o arquivo services/api.ts está configurado
 import { Sidebar } from '@/components/sidebar'
 import { DataTable } from '@/components/data-table'
 import { ClientForm } from '@/components/client-form'
@@ -16,15 +17,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { mockClients } from '@/lib/store'
 import { Client } from '@/lib/types'
 import { Plus, Users } from 'lucide-react'
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(mockClients)
+  // 1. Estado inicial vazio. Os dados virão do banco via API.
+  const [clients, setClients] = useState<Client[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [deleteClient, setDeleteClient] = useState<Client | null>(null)
+
+  // 2. Função para buscar os dados no Django (GET)
+  const fetchClients = async () => {
+    try {
+      const response = await api.get('clientes/')
+      setClients(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar clientes do banco:", error)
+    }
+  }
+
+  // 3. Efeito que dispara a busca ao carregar a página (Garante que o F5 funcione)
+  useEffect(() => {
+    fetchClients()
+  }, [])
 
   const columns = [
     { key: 'name' as const, header: 'Nome' },
@@ -33,23 +49,23 @@ export default function ClientsPage() {
     { key: 'address' as const, header: 'Endereço' },
   ]
 
-  const handleSave = (data: Omit<Client, 'id' | 'createdAt'> & { id?: string }) => {
-    if (data.id) {
-      setClients(clients.map((c) =>
-        c.id === data.id ? { ...c, ...data } : c
-      ))
-    } else {
-      const newClient: Client = {
-        id: String(Date.now()),
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        address: data.address,
-        createdAt: new Date(),
+  // 4. Salvar ou Atualizar enviando dados reais para o backend
+  const handleSave = async (data: Omit<Client, 'id' | 'createdAt'> & { id?: string }) => {
+    try {
+      if (data.id) {
+        // Atualiza no Django (PUT)
+        await api.put(`clientes/${data.id}/`, data)
+      } else {
+        // Cria no Django (POST)
+        await api.post('clientes/', data)
       }
-      setClients([...clients, newClient])
+      setFormOpen(false)
+      setEditingClient(null)
+      fetchClients() // Recarrega a lista do banco para refletir a mudança
+    } catch (error) {
+      console.error("Erro na comunicação com o servidor:", error)
+      alert("Não foi possível salvar. Verifique se o backend está rodando.")
     }
-    setEditingClient(null)
   }
 
   const handleEdit = (client: Client) => {
@@ -61,10 +77,17 @@ export default function ClientsPage() {
     setDeleteClient(client)
   }
 
-  const confirmDelete = () => {
+  // 5. Excluir cliente do banco de dados (DELETE)
+  const confirmDelete = async () => {
     if (deleteClient) {
-      setClients(clients.filter((c) => c.id !== deleteClient.id))
-      setDeleteClient(null)
+      try {
+        await api.delete(`clientes/${deleteClient.id}/`)
+        fetchClients() // Atualiza a lista após deletar
+        setDeleteClient(null)
+      } catch (error) {
+        console.error("Erro ao deletar:", error)
+        alert("Erro ao remover o registro do banco.")
+      }
     }
   }
 
@@ -75,7 +98,7 @@ export default function ClientsPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-            <p className="text-muted-foreground">Gerencie os clientes cadastrados</p>
+            <p className="text-muted-foreground">Sistema de Gestão - Dados Reais do Banco</p>
           </div>
           <Button
             onClick={() => {
@@ -120,7 +143,7 @@ export default function ClientsPage() {
                 Confirmar exclusão
               </AlertDialogTitle>
               <AlertDialogDescription className="text-muted-foreground">
-                Tem certeza que deseja excluir o cliente {deleteClient?.name}? Esta ação não pode ser desfeita.
+                Deseja realmente excluir o registro de <strong>{deleteClient?.name}</strong>?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
