@@ -69,13 +69,15 @@ export function ServiceOrderForm({
     }
   }, [order, open])
 
-  useEffect(() => {
+useEffect(() => {
     if (formData.clientId) {
-      setFilteredEquipments(equipments.filter((e) => e.clientId === formData.clientId))
+      setFilteredEquipments(
+        equipments.filter((e) => String(e.clientId) === String(formData.clientId))
+      );
     } else {
-      setFilteredEquipments([])
+      setFilteredEquipments([]);
     }
-  }, [formData.clientId, equipments])
+  }, [formData.clientId, equipments]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

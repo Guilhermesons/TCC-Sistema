@@ -19,6 +19,8 @@ class Equipamento(models.Model):
     # Mudado para owner para facilitar a relação, mas vamos tratar no Serializer
     owner = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='equipamentos')
     createdAt = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"{self.name} - {self.brand} ({self.model})"
 
 class OrdemServico(models.Model):
     # Mudado para bater com o problemDescription do Front

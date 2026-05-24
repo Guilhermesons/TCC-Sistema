@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import api from '@/services/api' // Conexão Axios com o Django
 import { Sidebar } from '@/components/sidebar'
 import { DataTable } from '@/components/data-table'
 import { ServiceOrderForm } from '@/components/service-order-form'
@@ -17,17 +18,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { mockServiceOrders, mockClients, mockEquipments } from '@/lib/store'
 import { ServiceOrder, Client, Equipment, ServiceOrderStatus } from '@/lib/types'
 import { Plus, ClipboardList } from 'lucide-react'
 
 export default function ServiceOrdersPage() {
-  const [orders, setOrders] = useState<ServiceOrder[]>(mockServiceOrders)
-  const [clients] = useState<Client[]>(mockClients)
-  const [equipments] = useState<Equipment[]>(mockEquipments)
+  const [orders, setOrders] = useState<ServiceOrder[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [equipments, setEquipments] = useState<Equipment[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null)
   const [deleteOrder, setDeleteOrder] = useState<ServiceOrder | null>(null)
+
+  // 1. Busca Ordens de Serviço usando a rota real do Django ('os/')
+  const fetchOrders = async () => {
+    try {
+      const response = await api.get('os/') 
+      console.log("Dados das ordens recebidos:", response.data)
+      setOrders(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar ordens de serviço:", error)
+    }
+  }
+
+  // 2. Busca Clientes do Django
+  const fetchClients = async () => {
+    try {
+      const response = await api.get('clientes/')
+      setClients(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar clientes do banco:", error)
+    }
+  }
+
+  // 3. Busca Equipamentos do Django
+  const fetchEquipments = async () => {
+    try {
+      const response = await api.get('equipamentos/')
+      setEquipments(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar equipamentos do banco:", error)
+    }
+  }
+
+  useEffect(() => {
+    fetchOrders()
+    fetchClients()
+    fetchEquipments()
+  }, [])
 
   const getStatusBadge = (status: ServiceOrderStatus) => {
     switch (status) {
@@ -42,63 +79,50 @@ export default function ServiceOrdersPage() {
     }
   }
 
+  // Mapeamento das colunas pronto para injetar dados no componente DataTable
   const columns = [
-    { key: 'clientName' as const, header: 'Cliente' },
-    { key: 'equipmentName' as const, header: 'Equipamento' },
+    { key: 'clientName', accessorKey: 'clientName', dataIndex: 'clientName', header: 'Cliente' },
+    { key: 'equipmentName', accessorKey: 'equipmentName', dataIndex: 'equipmentName', header: 'Equipamento' },
     {
-      key: 'problemDescription' as const,
+      key: 'problemDescription',
+      accessorKey: 'problemDescription',
+      dataIndex: 'problemDescription',
       header: 'Problema',
       render: (order: ServiceOrder) => (
         <span className="line-clamp-2 max-w-xs">{order.problemDescription}</span>
       ),
     },
     {
-      key: 'status' as const,
+      key: 'status',
+      accessorKey: 'status',
+      dataIndex: 'status',
       header: 'Status',
       render: (order: ServiceOrder) => getStatusBadge(order.status),
     },
   ]
 
-  const handleSave = (data: {
+  // Salva ou edita enviando para o endpoint 'os/'
+  const handleSave = async (data: {
     id?: string
     clientId: string
     equipmentId: string
     problemDescription: string
     status: ServiceOrderStatus
   }) => {
-    const client = clients.find((c) => c.id === data.clientId)
-    const equipment = equipments.find((e) => e.id === data.equipmentId)
-
-    if (data.id) {
-      setOrders(orders.map((o) =>
-        o.id === data.id
-          ? {
-              ...o,
-              clientId: data.clientId,
-              clientName: client?.name || '',
-              equipmentId: data.equipmentId,
-              equipmentName: `${equipment?.brand} ${equipment?.model}` || '',
-              problemDescription: data.problemDescription,
-              status: data.status,
-              updatedAt: new Date(),
-            }
-          : o
-      ))
-    } else {
-      const newOrder: ServiceOrder = {
-        id: String(Date.now()),
-        clientId: data.clientId,
-        clientName: client?.name || '',
-        equipmentId: data.equipmentId,
-        equipmentName: `${equipment?.brand} ${equipment?.model}` || '',
-        problemDescription: data.problemDescription,
-        status: data.status,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+    try {
+      const url = data.id ? `os/${data.id}/` : 'os/'
+      if (data.id) {
+        await api.put(url, data)
+      } else {
+        await api.post(url, data)
       }
-      setOrders([...orders, newOrder])
+      setFormOpen(false)
+      setEditingOrder(null)
+      fetchOrders() 
+    } catch (error) {
+      console.error("Erro ao salvar ordem de serviço:", error)
+      alert("Erro ao salvar a ordem de serviço. Verifique os dados enviados.")
     }
-    setEditingOrder(null)
   }
 
   const handleEdit = (order: ServiceOrder) => {
@@ -110,10 +134,17 @@ export default function ServiceOrdersPage() {
     setDeleteOrder(order)
   }
 
-  const confirmDelete = () => {
+  // Remove o registro do banco batendo em 'os/:id/'
+  const confirmDelete = async () => {
     if (deleteOrder) {
-      setOrders(orders.filter((o) => o.id !== deleteOrder.id))
-      setDeleteOrder(null)
+      try {
+        await api.delete(`os/${deleteOrder.id}/`)
+        setDeleteOrder(null)
+        fetchOrders()
+      } catch (error) {
+        console.error("Erro ao deletar ordem:", error)
+        alert("Erro ao excluir a ordem de serviço.")
+      }
     }
   }
 

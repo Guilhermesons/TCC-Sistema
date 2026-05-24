@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import api from '@/services/api' // Sua conexão Axios com o Django
 import { Sidebar } from '@/components/sidebar'
 import { DataTable } from '@/components/data-table'
 import { EquipmentForm } from '@/components/equipment-form'
@@ -16,45 +17,67 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { mockEquipments, mockClients } from '@/lib/store'
 import { Equipment, Client } from '@/lib/types'
 import { Plus, Monitor } from 'lucide-react'
 
 export default function EquipmentPage() {
-  const [equipments, setEquipments] = useState<Equipment[]>(mockEquipments)
-  const [clients] = useState<Client[]>(mockClients)
+  // Estados dinâmicos iniciando vazios para carregar do Banco de Dados real
+  const [equipments, setEquipments] = useState<Equipment[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null)
   const [deleteEquipment, setDeleteEquipment] = useState<Equipment | null>(null)
 
+  // Função para buscar Equipamentos do Django
+  const fetchEquipments = async () => {
+    try {
+      const response = await api.get('equipamentos/')
+      setEquipments(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar equipamentos do banco:", error)
+    }
+  }
+
+  // Função para buscar Clientes do Django (alimenta o Select do formulário)
+  const fetchClients = async () => {
+    try {
+      const response = await api.get('clientes/')
+      setClients(response.data)
+    } catch (error) {
+      console.error("Erro ao carregar clientes do banco:", error)
+    }
+  }
+
+  // Dispara a busca automática ao carregar a página
+  useEffect(() => {
+    fetchEquipments()
+    fetchClients()
+  }, [])
+
   const columns = [
-    { key: 'name' as const, header: 'Equipamento' },
-    { key: 'brand' as const, header: 'Marca' },
-    { key: 'model' as const, header: 'Modelo' },
-    { key: 'clientName' as const, header: 'Cliente' },
+    { key: 'name', accessorKey: 'name', dataIndex: 'name', header: 'Equipamento' },
+    { key: 'brand', accessorKey: 'brand', dataIndex: 'brand', header: 'Marca' },
+    { key: 'model', accessorKey: 'model', dataIndex: 'model', header: 'Modelo' },
+    { key: 'clientName', accessorKey: 'clientName', dataIndex: 'clientName', header: 'Cliente' },
   ]
 
-  const handleSave = (data: Omit<Equipment, 'id' | 'createdAt' | 'clientName'> & { id?: string }) => {
-    const client = clients.find((c) => c.id === data.clientId)
-    if (data.id) {
-      setEquipments(equipments.map((e) =>
-        e.id === data.id
-          ? { ...e, ...data, clientName: client?.name || '' }
-          : e
-      ))
-    } else {
-      const newEquipment: Equipment = {
-        id: String(Date.now()),
-        name: data.name,
-        brand: data.brand,
-        model: data.model,
-        clientId: data.clientId,
-        clientName: client?.name || '',
-        createdAt: new Date(),
+  // Salvar ou atualizar dados direto na API
+  const handleSave = async (data: Omit<Equipment, 'id' | 'createdAt' | 'clientName'> & { id?: string }) => {
+    try {
+      if (data.id) {
+        // Atualiza no Django (PUT)
+        await api.put(`equipamentos/${data.id}/`, data)
+      } else {
+        // Cria no Django (POST)
+        await api.post('equipamentos/', data)
       }
-      setEquipments([...equipments, newEquipment])
+      setFormOpen(false)
+      setEditingEquipment(null)
+      fetchEquipments() // Recarrega a tabela com os dados atualizados
+    } catch (error) {
+      console.error("Erro ao salvar equipamento na API:", error)
+      alert("Erro ao salvar o equipamento. Verifique a conexão com o servidor.")
     }
-    setEditingEquipment(null)
   }
 
   const handleEdit = (equipment: Equipment) => {
@@ -66,16 +89,24 @@ export default function EquipmentPage() {
     setDeleteEquipment(equipment)
   }
 
-  const confirmDelete = () => {
+  // Deleta o item selecionado direto no Banco de Dados
+  const confirmDelete = async () => {
     if (deleteEquipment) {
-      setEquipments(equipments.filter((e) => e.id !== deleteEquipment.id))
-      setDeleteEquipment(null)
+      try {
+        await api.delete(`equipamentos/${deleteEquipment.id}/`)
+        setDeleteEquipment(null)
+        fetchEquipments() // Atualiza a lista após deletar
+      } catch (error) {
+        console.error("Erro ao deletar equipamento na API:", error)
+        alert("Erro ao excluir o equipamento.")
+      }
     }
   }
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
+      
       <main className="ml-64 p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -94,6 +125,7 @@ export default function EquipmentPage() {
           </Button>
         </div>
 
+        {/* COMPONENTE CARD TOTALMENTE FECHADO E CORRIGIDO AQUI */}
         <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-card-foreground">
