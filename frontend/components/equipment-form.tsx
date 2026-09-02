@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -17,23 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Equipment, Client } from '@/lib/types'
+import { Client, Equipment } from '@/lib/types'
+import { Loader2, Monitor } from 'lucide-react'
 
 interface EquipmentFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   equipment?: Equipment | null
   clients: Client[]
-  onSave: (equipment: Omit<Equipment, 'id' | 'createdAt' | 'clientName'> & { id?: string }) => void
+  initialClientId?: string
+  onSave: (equipment: Omit<Equipment, 'id' | 'createdAt' | 'clientName'> & { id?: string }) => Promise<void> | void
 }
 
-export function EquipmentForm({ open, onOpenChange, equipment, clients, onSave }: EquipmentFormProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    brand: '',
-    model: '',
-    clientId: '',
-  })
+export function EquipmentForm({
+  open,
+  onOpenChange,
+  equipment,
+  clients,
+  initialClientId = '',
+  onSave,
+}: EquipmentFormProps) {
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState({ name: '', brand: '', model: '', serialNumber: '', clientId: '' })
 
   useEffect(() => {
     if (equipment) {
@@ -41,99 +47,111 @@ export function EquipmentForm({ open, onOpenChange, equipment, clients, onSave }
         name: equipment.name,
         brand: equipment.brand,
         model: equipment.model,
-        clientId: equipment.clientId,
+        serialNumber: equipment.serialNumber || '',
+        clientId: String(equipment.clientId),
       })
     } else {
-      setFormData({
-        name: '',
-        brand: '',
-        model: '',
-        clientId: '',
-      })
+      setFormData({ name: '', brand: '', model: '', serialNumber: '', clientId: initialClientId })
     }
-  }, [equipment, open])
+  }, [equipment, open, initialClientId])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      ...formData,
-      id: equipment?.id,
-    })
-    onOpenChange(false)
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    try {
+      setSaving(true)
+      await onSave({ ...formData, id: equipment?.id })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-card sm:max-w-[425px]">
+      <DialogContent className="border-border/80 bg-card/95 sm:max-w-[540px]">
         <DialogHeader>
-          <DialogTitle className="text-card-foreground">
-            {equipment ? 'Editar Equipamento' : 'Novo Equipamento'}
-          </DialogTitle>
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-400/10 text-blue-300">
+            <Monitor className="h-5 w-5" />
+          </div>
+          <DialogTitle>{equipment ? 'Editar equipamento' : 'Novo equipamento'}</DialogTitle>
+          <DialogDescription>
+            Vincule o equipamento ao cliente para manter o histórico de atendimentos organizado.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-card-foreground">Nome do Equipamento</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ex: Notebook, Impressora, Desktop"
-              required
-              className="border-border bg-input text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand" className="text-card-foreground">Marca</Label>
-            <Input
-              id="brand"
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              placeholder="Ex: Dell, HP, Lenovo"
-              required
-              className="border-border bg-input text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="model" className="text-card-foreground">Modelo</Label>
-            <Input
-              id="model"
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              placeholder="Ex: Inspiron 15, LaserJet Pro"
-              required
-              className="border-border bg-input text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="client" className="text-card-foreground">Cliente</Label>
+            <Label htmlFor="client">Cliente responsável</Label>
             <Select
               value={formData.clientId}
               onValueChange={(value) => setFormData({ ...formData, clientId: value })}
               required
             >
-              <SelectTrigger className="border-border bg-input text-foreground">
+              <SelectTrigger className="h-11 border-border/75 bg-background/45">
                 <SelectValue placeholder="Selecione o cliente" />
               </SelectTrigger>
               <SelectContent className="border-border bg-card">
                 {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
+                  <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-border"
-            >
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Tipo do equipamento</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+              placeholder="Ex: Notebook, Desktop, Impressora"
+              required
+              className="h-11 border-border/75 bg-background/45"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="brand">Marca</Label>
+              <Input
+                id="brand"
+                value={formData.brand}
+                onChange={(event) => setFormData({ ...formData, brand: event.target.value })}
+                placeholder="Ex: Dell"
+                required
+                className="h-11 border-border/75 bg-background/45"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="model">Modelo</Label>
+              <Input
+                id="model"
+                value={formData.model}
+                onChange={(event) => setFormData({ ...formData, model: event.target.value })}
+                placeholder="Ex: Inspiron 15"
+                required
+                className="h-11 border-border/75 bg-background/45"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="serialNumber">Número de série <span className="text-muted-foreground">(opcional)</span></Label>
+            <Input
+              id="serialNumber"
+              value={formData.serialNumber}
+              onChange={(event) => setFormData({ ...formData, serialNumber: event.target.value })}
+              placeholder="Ex: SN123456789"
+              className="h-11 border-border/75 bg-background/45"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-border/55 pt-5">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              {equipment ? 'Salvar' : 'Adicionar'}
+            <Button type="submit" disabled={saving || !formData.clientId}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {equipment ? 'Salvar alterações' : 'Cadastrar equipamento'}
             </Button>
           </div>
         </form>

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -17,7 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ServiceOrder, Client, Equipment, ServiceOrderStatus } from '@/lib/types'
+import { Client, Equipment, ServiceOrder, ServiceOrderStatus } from '@/lib/types'
+import {
+  SERVICE_CATEGORIES,
+  ServiceCategory,
+  formatBRL,
+  getServiceCategory,
+} from '@/lib/service-categories'
+import { ClipboardPlus, Loader2, Tag } from 'lucide-react'
 
 interface ServiceOrderFormProps {
   open: boolean
@@ -25,13 +33,16 @@ interface ServiceOrderFormProps {
   order?: ServiceOrder | null
   clients: Client[]
   equipments: Equipment[]
+  initialClientId?: string
+  initialEquipmentId?: string
   onSave: (order: {
     id?: string
     clientId: string
     equipmentId: string
     problemDescription: string
+    category: ServiceCategory
     status: ServiceOrderStatus
-  }) => void
+  }) => Promise<void> | void
 }
 
 export function ServiceOrderForm({
@@ -40,142 +51,202 @@ export function ServiceOrderForm({
   order,
   clients,
   equipments,
+  initialClientId = '',
+  initialEquipmentId = '',
   onSave,
 }: ServiceOrderFormProps) {
+  const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     clientId: '',
     equipmentId: '',
     problemDescription: '',
+    category: 'diagnostic' as ServiceCategory,
     status: 'open' as ServiceOrderStatus,
   })
-
-  const [filteredEquipments, setFilteredEquipments] = useState<Equipment[]>([])
 
   useEffect(() => {
     if (order) {
       setFormData({
-        clientId: order.clientId,
-        equipmentId: order.equipmentId,
+        clientId: String(order.clientId),
+        equipmentId: String(order.equipmentId),
         problemDescription: order.problemDescription,
+        category: order.category || 'legacy',
         status: order.status,
       })
     } else {
       setFormData({
-        clientId: '',
-        equipmentId: '',
+        clientId: initialClientId,
+        equipmentId: initialEquipmentId,
         problemDescription: '',
+        category: 'diagnostic',
         status: 'open',
       })
     }
-  }, [order, open])
+  }, [order, open, initialClientId, initialEquipmentId])
 
-useEffect(() => {
-    if (formData.clientId) {
-      setFilteredEquipments(
-        equipments.filter((e) => String(e.clientId) === String(formData.clientId))
-      );
-    } else {
-      setFilteredEquipments([]);
+  const filteredEquipments = useMemo(
+    () => equipments.filter((equipment) => String(equipment.clientId) === String(formData.clientId)),
+    [equipments, formData.clientId],
+  )
+
+  const selectedCategory = getServiceCategory(formData.category)
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    try {
+      setSaving(true)
+      await onSave({ ...formData, id: order?.id })
+    } finally {
+      setSaving(false)
     }
-  }, [formData.clientId, equipments]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({
-      ...formData,
-      id: order?.id,
-    })
-    onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-card sm:max-w-[500px]">
+      <DialogContent className="border-border/80 bg-card/95 sm:max-w-[650px]">
         <DialogHeader>
-          <DialogTitle className="text-card-foreground">
-            {order ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
-          </DialogTitle>
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ClipboardPlus className="h-5 w-5" />
+          </div>
+          <DialogTitle>{order ? 'Editar ordem de serviço' : 'Nova ordem de serviço'}</DialogTitle>
+          <DialogDescription>
+            Selecione o cliente, equipamento e a categoria. O valor-base é definido automaticamente e poderá ser ajustado no atendimento.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="client">Cliente</Label>
+              <Select
+                value={formData.clientId}
+                onValueChange={(value) => setFormData({ ...formData, clientId: value, equipmentId: '' })}
+                required
+              >
+                <SelectTrigger className="h-11 border-border/75 bg-background/45">
+                  <SelectValue placeholder="Selecione o cliente" />
+                </SelectTrigger>
+                <SelectContent className="border-border bg-card">
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="equipment">Equipamento</Label>
+              <Select
+                value={formData.equipmentId}
+                onValueChange={(value) => setFormData({ ...formData, equipmentId: value })}
+                required
+                disabled={!formData.clientId}
+              >
+                <SelectTrigger className="h-11 border-border/75 bg-background/45">
+                  <SelectValue placeholder={formData.clientId ? 'Selecione o equipamento' : 'Escolha o cliente primeiro'} />
+                </SelectTrigger>
+                <SelectContent className="border-border bg-card">
+                  {filteredEquipments.map((equipment) => (
+                    <SelectItem key={equipment.id} value={String(equipment.id)}>
+                      {equipment.brand} {equipment.model} ({equipment.name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {formData.clientId && filteredEquipments.length === 0 && (
+            <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3.5 py-3 text-xs text-amber-200/90">
+              Este cliente ainda não possui equipamento cadastrado. Cadastre o equipamento antes de abrir a OS.
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="client" className="text-card-foreground">Cliente</Label>
+            <Label htmlFor="category">Categoria do serviço</Label>
             <Select
-              value={formData.clientId}
-              onValueChange={(value) => setFormData({ ...formData, clientId: value, equipmentId: '' })}
-              required
+              value={formData.category}
+              onValueChange={(value) => setFormData({ ...formData, category: value as ServiceCategory })}
             >
-              <SelectTrigger className="border-border bg-input text-foreground">
-                <SelectValue placeholder="Selecione o cliente" />
+              <SelectTrigger className="h-11 border-border/75 bg-background/45">
+                <SelectValue placeholder="Selecione a categoria" />
               </SelectTrigger>
               <SelectContent className="border-border bg-card">
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
+                {order?.category === 'legacy' && (
+                  <SelectItem value="legacy">Sem categoria (OS anterior)</SelectItem>
+                )}
+                {SERVICE_CATEGORIES.map((category) => (
+                  <SelectItem key={category.value} value={category.value}>
+                    {category.label} · {formatBRL(category.price)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="equipment" className="text-card-foreground">Equipamento</Label>
-            <Select
-              value={formData.equipmentId}
-              onValueChange={(value) => setFormData({ ...formData, equipmentId: value })}
-              required
-              disabled={!formData.clientId}
-            >
-              <SelectTrigger className="border-border bg-input text-foreground">
-                <SelectValue placeholder={formData.clientId ? "Selecione o equipamento" : "Selecione um cliente primeiro"} />
-              </SelectTrigger>
-              <SelectContent className="border-border bg-card">
-                {filteredEquipments.map((equipment) => (
-                  <SelectItem key={equipment.id} value={equipment.id}>
-                    {equipment.brand} {equipment.model} ({equipment.name})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+          <div className="rounded-xl border border-primary/15 bg-primary/[0.045] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Tag className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{selectedCategory.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{selectedCategory.description}</p>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Valor-base</p>
+                <p className="mt-1 text-lg font-semibold text-primary">{formatBRL(selectedCategory.price)}</p>
+              </div>
+            </div>
+            <p className="mt-3 border-t border-border/50 pt-3 text-[11px] text-muted-foreground">
+              O valor-base será gravado como preço inicial da OS. O técnico poderá ajustar o valor final conforme o serviço executado.
+            </p>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="problem" className="text-card-foreground">Descrição do Problema</Label>
+            <Label htmlFor="problem">Problema relatado</Label>
             <Textarea
               id="problem"
               value={formData.problemDescription}
-              onChange={(e) => setFormData({ ...formData, problemDescription: e.target.value })}
-              placeholder="Descreva o problema detalhadamente..."
+              onChange={(event) => setFormData({ ...formData, problemDescription: event.target.value })}
+              placeholder="Descreva o defeito, sintomas e observações informadas pelo cliente..."
               required
-              rows={4}
-              className="border-border bg-input text-foreground placeholder:text-muted-foreground resize-none"
+              rows={5}
+              className="resize-none border-border/75 bg-background/45"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="status" className="text-card-foreground">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData({ ...formData, status: value as ServiceOrderStatus })}
-              required
-            >
-              <SelectTrigger className="border-border bg-input text-foreground">
-                <SelectValue placeholder="Selecione o status" />
-              </SelectTrigger>
-              <SelectContent className="border-border bg-card">
-                <SelectItem value="open">Aberta</SelectItem>
-                <SelectItem value="in-progress">Em Andamento</SelectItem>
-                <SelectItem value="completed">Concluída</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-border"
-            >
+
+          {order && (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value as ServiceOrderStatus })}
+              >
+                <SelectTrigger className="h-11 border-border/75 bg-background/45">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-border bg-card">
+                  <SelectItem value="open">Aberta</SelectItem>
+                  <SelectItem value="in-progress">Em andamento</SelectItem>
+                  <SelectItem value="completed">Concluída</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 border-t border-border/55 pt-5">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              {order ? 'Salvar' : 'Criar Ordem'}
+            <Button
+              type="submit"
+              disabled={saving || !formData.clientId || !formData.equipmentId || !formData.problemDescription.trim() || formData.category === 'legacy'}
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {order ? 'Salvar alterações' : 'Criar ordem'}
             </Button>
           </div>
         </form>

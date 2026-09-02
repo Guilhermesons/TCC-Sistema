@@ -3,18 +3,28 @@ Django settings for core project.
 """
 
 from pathlib import Path
-import dj_database_url
+import os
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&w5yqv$dhi06uhobzv*y-l9)_5!!&euw=5-4&j@p!$=*y@vmlx'
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-local-development-only")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ['tcc-sistema.onrender.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "127.0.0.1,localhost"
+    ).split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -49,7 +59,23 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://tcc-sistema.vercel.app",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if origin.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if origin.strip()
+]
 
 ROOT_URLCONF = 'core.urls'
 
@@ -72,13 +98,30 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 
 # Database
-DATABASES = {
-    'default': dj_database_url.config(
-        default='postgresql://postgres.ttnvjxdwdyckslcbntvb:guilhermemuitofo@aws-1-us-east-2.pooler.supabase.com:5432/postgres',
-        conn_max_age=600
-    )
-}
+DB_HOST = os.getenv("DB_HOST")
 
+if DB_HOST:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "postgres"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": DB_HOST,
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 600,
+            "OPTIONS": {
+                "sslmode": "require",
+            },
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

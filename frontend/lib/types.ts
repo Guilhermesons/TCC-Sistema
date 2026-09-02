@@ -1,10 +1,12 @@
+import type { ServiceCategory } from '@/lib/service-categories'
+
 export interface Client {
   id: string
   name: string
   phone: string
   email: string
   address: string
-  createdAt: Date
+  createdAt: Date | string
 }
 
 export interface Equipment {
@@ -12,9 +14,10 @@ export interface Equipment {
   name: string
   brand: string
   model: string
+  serialNumber?: string | null
   clientId: string
   clientName: string
-  createdAt: Date
+  createdAt: Date | string
 }
 
 export interface ServiceOrder {
@@ -24,9 +27,13 @@ export interface ServiceOrder {
   equipmentId: string
   equipmentName: string
   problemDescription: string
+  category: ServiceCategory
+  basePrice?: number | string | null
   status: 'open' | 'in-progress' | 'completed'
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
+  price?: number | string | null
+  serviceDone?: string | null
 }
 
 export type ServiceOrderStatus = ServiceOrder['status']
