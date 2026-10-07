@@ -46,7 +46,6 @@ import {
   Wrench,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 type StatusFilter = 'all' | ServiceOrderStatus
 
@@ -139,8 +138,6 @@ export default function ServiceOrdersPage() {
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query))
       })
-      .slice()
-      .reverse()
   }, [orders, search, statusFilter])
 
   const getStatusBadge = (status: ServiceOrderStatus) => {
@@ -185,8 +182,6 @@ export default function ServiceOrdersPage() {
     const onlyTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(issueDateObj)
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pageW = 210
-    const pageH = 297
     doc.setFont('times', 'normal')
     doc.setTextColor(0, 0, 0)
 
@@ -199,14 +194,22 @@ export default function ServiceOrdersPage() {
       }
     }
 
-    const drawText = (textValue: string, x: number, y: number, maxWidth?: number, fontSize = 7.5, style: 'normal' | 'bold' = 'normal', align: 'left' | 'center' | 'right' = 'left') => {
+    const drawText = (
+      value: string,
+      x: number,
+      y: number,
+      maxWidth?: number,
+      fontSize = 7.5,
+      style: 'normal' | 'bold' = 'normal',
+      align: 'left' | 'center' | 'right' = 'left',
+    ) => {
       doc.setFont('times', style)
       doc.setFontSize(fontSize)
       if (maxWidth) {
-        const lines = doc.splitTextToSize(textValue, maxWidth)
+        const lines = doc.splitTextToSize(value, maxWidth)
         doc.text(lines, x, y, { align })
       } else {
-        doc.text(textValue, x, y, { align })
+        doc.text(value, x, y, { align })
       }
     }
 
@@ -226,11 +229,11 @@ export default function ServiceOrdersPage() {
     }
 
     const fakeWatermark = () => {
-      doc.setTextColor(200, 200, 200)
+      doc.setTextColor(205, 205, 205)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(28)
+      doc.setFontSize(27)
       doc.text('DOCUMENTO FICTÍCIO', 105, 160, { align: 'center', angle: 28 })
-      doc.setFontSize(22)
+      doc.setFontSize(21)
       doc.text('SEM VALOR FISCAL', 105, 178, { align: 'center', angle: 28 })
       doc.setTextColor(0, 0, 0)
     }
@@ -238,13 +241,11 @@ export default function ServiceOrdersPage() {
     const orderId = String(order.id || '0').padStart(6, '0')
     const emitterName = 'TECHASSIST TECNOLOGIA LTDA. — EMPRESA FICTÍCIA'
     const emitterAddress = 'Rua XXXX, nº XXXX — Bairro XXXX — Cidade XXXX/UF'
-    const clientDoc = 'XXX.XXX.XXX-XX'
     const serviceDesc = currentServiceDone || order.serviceDone || order.problemDescription || 'Serviço técnico conforme ordem de serviço.'
     const equipmentDesc = `${equipmentInfo?.brand || ''} ${equipmentInfo?.model || ''} ${equipmentInfo?.name ? `(${equipmentInfo.name})` : ''}`.replace(/\s+/g, ' ').trim() || order.equipmentName || 'Equipamento não informado'
     const protocol = `XXXX${String(order.id || '0').padStart(10, '0')}`
     const accessKey = 'XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX'
 
-    // Faixa superior de recebimento
     drawBox(4, 4, 166, 20)
     drawText(
       `Recebemos de ${emitterName} os serviços constantes deste Documento Auxiliar Demonstrativo. Emissão: ${onlyDate}   Dest/Rem: ${clientInfo?.name || order.clientName || 'CLIENTE NÃO INFORMADO'}   Valor Total: ${formatBRL(finalPrice)}`,
@@ -252,7 +253,6 @@ export default function ServiceOrdersPage() {
       10,
       160,
       7,
-      'normal',
     )
     drawBox(170, 4, 36, 20)
     drawText('NF-e', 188, 10, undefined, 14, 'bold', 'center')
@@ -262,7 +262,6 @@ export default function ServiceOrdersPage() {
     drawBox(87, 24, 83, 8, 'Identificação e assinatura do recebedor')
     drawBox(170, 24, 36, 8)
 
-    // Cabeçalho principal estilo DANFE
     drawBox(4, 36, 80, 36)
     drawText('TECHASSIST', 44, 42, undefined, 13, 'bold', 'center')
     drawText('SERVICE MANAGEMENT', 44, 47, undefined, 8.5, 'bold', 'center')
@@ -275,8 +274,8 @@ export default function ServiceOrdersPage() {
     drawText('DANFE', 101, 44, undefined, 15, 'bold', 'center')
     drawText('Documento Auxiliar do', 101, 49.5, undefined, 7, 'normal', 'center')
     drawText('Documento Fiscal Demonstrativo', 101, 53, undefined, 7, 'normal', 'center')
-    drawText('0 - ENTRADA', 91, 59, undefined, 7.5, 'normal')
-    drawText('1 - SAÍDA', 91, 63.5, undefined, 7.5, 'normal')
+    drawText('0 - ENTRADA', 91, 59, undefined, 7.5)
+    drawText('1 - SAÍDA', 91, 63.5, undefined, 7.5)
     doc.rect(107, 56.5, 8, 8)
     drawText('1', 111, 62, undefined, 10, 'bold', 'center')
     drawText(`Nº ${orderId}`, 101, 68, undefined, 10, 'bold', 'center')
@@ -293,7 +292,6 @@ export default function ServiceOrdersPage() {
     drawBox(134, 72, 72, 10, 'Protocolo de autorização de uso')
     drawText(`NF-e sem autorização de uso da SEFAZ — protocolo ${protocol}`, 170, 78, 68, 7.2, 'bold', 'center')
 
-    // Destinatário / Remetente
     drawText('DESTINATÁRIO / REMETENTE', 5, 87, undefined, 8.4, 'bold')
     drawBox(4, 88, 202, 24)
     drawBox(4, 88, 102, 8, 'Nome / Razão social')
@@ -301,7 +299,7 @@ export default function ServiceOrdersPage() {
     drawBox(150, 88, 28, 8, 'Data da emissão')
     drawBox(178, 88, 28, 8, 'Data da saída')
     drawText(clientInfo?.name || order.clientName || 'CLIENTE NÃO INFORMADO', 6, 94, 98, 8, 'bold')
-    drawText(clientDoc, 128, 94, undefined, 8, 'normal', 'center')
+    drawText('XXX.XXX.XXX-XX', 128, 94, undefined, 8, 'normal', 'center')
     drawText(onlyDate, 164, 94, undefined, 8, 'normal', 'center')
     drawText(onlyDate, 192, 94, undefined, 8, 'normal', 'center')
 
@@ -322,27 +320,20 @@ export default function ServiceOrdersPage() {
     drawBox(130, 104, 76, 8, 'Observação')
     drawText('Cidade XXXX', 6, 110, 66, 7.6)
     drawText('XX', 79, 110, undefined, 7.6, 'normal', 'center')
-    drawText(clientInfo?.email || '—', 107, 110, 40, 7.4, 'normal', 'center')
+    drawText(clientInfo?.email || '—', 107, 110, 40, 7.2, 'normal', 'center')
     drawText('Documento emitido apenas para apresentação acadêmica.', 132, 110, 72, 7)
 
-    // Cálculo do imposto / resumo financeiro
     drawText('CÁLCULO DO IMPOSTO / RESUMO FINANCEIRO', 5, 117, undefined, 8.4, 'bold')
-    const taxHeaders = [
-      'Base de cálculo', 'Valor do ISS', 'Base cálculo ISS ST', 'Valor ISS ST', 'Valor total dos serviços',
-      'Desconto', 'Outras despesas', 'Valor do documento'
-    ]
-    const taxValues = [
-      '0,00', '0,00', '0,00', '0,00', formatBRL(basePrice), formatBRL(Math.max(basePrice - finalPrice, 0)), formatBRL(Math.max(adjustment, 0)), formatBRL(finalPrice)
-    ]
+    const taxHeaders = ['Base de cálculo', 'Valor do ISS', 'Base cálculo ISS ST', 'Valor ISS ST', 'Valor total dos serviços', 'Desconto', 'Outras despesas', 'Valor do documento']
+    const taxValues = ['0,00', '0,00', '0,00', '0,00', formatBRL(basePrice), formatBRL(Math.max(basePrice - finalPrice, 0)), formatBRL(Math.max(adjustment, 0)), formatBRL(finalPrice)]
     const taxWidths = [25, 20, 25, 20, 26, 20, 24, 42]
     let tx = 4
-    for (let i = 0; i < taxHeaders.length; i++) {
+    for (let i = 0; i < taxHeaders.length; i += 1) {
       drawBox(tx, 118, taxWidths[i], 12, taxHeaders[i])
       drawText(taxValues[i], tx + taxWidths[i] - 1.5, 127.4, undefined, 7.8, 'bold', 'right')
       tx += taxWidths[i]
     }
 
-    // Transportador / volumes (preenchido como fictício)
     drawText('TRANSPORTADOR / VOLUMES TRANSPORTADOS', 5, 135, undefined, 8.4, 'bold')
     drawBox(4, 136, 202, 22)
     drawBox(4, 136, 92, 7, 'Nome / Razão social')
@@ -376,13 +367,12 @@ export default function ServiceOrdersPage() {
     drawText(orderId.slice(-4), 182, 148.2, undefined, 7.1, 'normal', 'center')
     drawText('0,00', 198, 148.2, undefined, 7.1, 'normal', 'center')
 
-    // Tabela de dados dos produtos/serviços
     drawText('DADOS DOS SERVIÇOS', 5, 163, undefined, 8.4, 'bold')
     const startY = 164
     const rowH = 7
     const colX = [4, 20, 82, 96, 104, 111, 118, 131, 145, 160, 174, 188, 198, 206]
     const headers = ['CÓD.', 'DESCRIÇÃO DO SERVIÇO', 'NCM/SH', 'CST', 'CFOP', 'UN', 'QTD.', 'VALOR UNIT.', 'DESC.', 'VALOR TOTAL', 'BASE CÁLC.', 'ALIQ.', 'VALOR IMP.']
-    for (let i = 0; i < headers.length; i++) {
+    for (let i = 0; i < headers.length; i += 1) {
       const x = colX[i]
       const next = colX[i + 1] || 206
       drawBox(x, startY, next - x, rowH)
@@ -390,13 +380,12 @@ export default function ServiceOrdersPage() {
     }
     const tableBottom = 236
     drawBox(4, startY + rowH, 202, tableBottom - (startY + rowH))
-    for (let i = 1; i < colX.length; i++) {
-      doc.line(colX[i], startY + rowH, colX[i], tableBottom)
-    }
+    for (let i = 1; i < colX.length; i += 1) doc.line(colX[i], startY + rowH, colX[i], tableBottom)
+
     drawText('1', 12, startY + 12, undefined, 7.2, 'normal', 'center')
-    drawText(`${categoryInfo.label} — ${equipmentDesc}`, 22, startY + 10.3, 58, 7.1, 'normal')
-    drawText(`Problema: ${order.problemDescription || '—'}`, 22, startY + 16.3, 58, 6.8, 'normal')
-    drawText(`Laudo: ${serviceDesc}`, 22, startY + 22.2, 58, 6.8, 'normal')
+    drawText(`${categoryInfo.label} — ${equipmentDesc}`, 22, startY + 10.3, 58, 7.1)
+    drawText(`Problema: ${order.problemDescription || '—'}`, 22, startY + 16.3, 58, 6.8)
+    drawText(`Laudo: ${serviceDesc}`, 22, startY + 22.2, 58, 6.8)
     drawText('XXXX.XX.XX', 89, startY + 12, undefined, 6.7, 'normal', 'center')
     drawText('0400', 100, startY + 12, undefined, 6.7, 'normal', 'center')
     drawText('5933', 107.5, startY + 12, undefined, 6.7, 'normal', 'center')
@@ -411,7 +400,6 @@ export default function ServiceOrdersPage() {
 
     fakeWatermark()
 
-    // Dados adicionais
     drawText('DADOS ADICIONAIS', 5, 241, undefined, 8.4, 'bold')
     drawBox(4, 242, 128, 42, 'Informações complementares')
     drawBox(132, 242, 74, 42, 'Reservado ao fisco')
@@ -422,11 +410,11 @@ export default function ServiceOrdersPage() {
       'Este arquivo imita a organização visual de um DANFE apenas para demonstração do TCC.',
       'CNPJ, inscrição, chave de acesso, protocolo e dados fiscais com XXXX são inválidos propositalmente.',
     ].join(' ')
-    drawText(obs, 6, 248, 124, 7.3, 'normal')
+    drawText(obs, 6, 248, 124, 7.3)
     drawText('SEM VALOR FISCAL', 169, 262, 60, 10, 'bold', 'center')
     drawText('Uso exclusivo para apresentação / demonstração.', 169, 269, 60, 7.3, 'normal', 'center')
 
-    drawText(`DATA E HORA DA IMPRESSÃO: ${issueDate}`, 4, 289.5, undefined, 6.6, 'normal')
+    drawText(`DATA E HORA DA IMPRESSÃO: ${issueDate}`, 4, 289.5, undefined, 6.6)
     drawText('TechAssist — Documento demonstrativo não fiscal', 206, 289.5, undefined, 6.6, 'normal', 'right')
 
     doc.save(`DANFE_DEMONSTRATIVO_OS_${String(order.id || '0000').padStart(4, '0')}.pdf`)
@@ -436,11 +424,15 @@ export default function ServiceOrdersPage() {
     {
       key: 'id',
       header: 'OS',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => Number(order.id),
       render: (order: ServiceOrder) => <span className="font-mono text-xs font-semibold text-primary">#{String(order.id).padStart(4, '0')}</span>,
     },
     {
       key: 'clientName',
       header: 'Cliente / Equipamento',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => `${order.clientName} ${order.equipmentName}`,
       render: (order: ServiceOrder) => (
         <div>
           <p className="font-medium text-foreground">{order.clientName}</p>
@@ -451,6 +443,8 @@ export default function ServiceOrdersPage() {
     {
       key: 'problemDescription',
       header: 'Problema relatado',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => getServiceCategory(order.category).label,
       render: (order: ServiceOrder) => (
         <div className="max-w-md">
           <p className="line-clamp-2 text-sm">{order.problemDescription}</p>
@@ -458,10 +452,32 @@ export default function ServiceOrdersPage() {
         </div>
       ),
     },
-    { key: 'status', header: 'Status', render: (order: ServiceOrder) => getStatusBadge(order.status) },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => ({ open: 0, 'in-progress': 1, completed: 2 }[order.status]),
+      render: (order: ServiceOrder) => getStatusBadge(order.status),
+    },
+    {
+      key: 'createdAt',
+      header: 'Criada em',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => new Date(order.createdAt),
+      render: (order: ServiceOrder) => <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>,
+    },
+    {
+      key: 'updatedAt',
+      header: 'Atualizada em',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => new Date(order.updatedAt),
+      render: (order: ServiceOrder) => <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(order.updatedAt)}</span>,
+    },
     {
       key: 'price',
       header: 'Valor',
+      sortable: true,
+      sortValue: (order: ServiceOrder) => Number(order.price ?? order.basePrice ?? 0),
       render: (order: ServiceOrder) => <span className="font-medium">{formatBRL(order.price ?? order.basePrice ?? 0)}</span>,
     },
   ]
@@ -586,7 +602,7 @@ export default function ServiceOrdersPage() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="ml-64 p-6 lg:p-8 xl:p-10">
+      <main className="p-4 pt-20 md:ml-64 md:p-6 lg:p-8 xl:p-10">
         <div className="mx-auto w-full max-w-[1500px]">
           <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -654,6 +670,8 @@ export default function ServiceOrdersPage() {
                 <DataTable
                   data={filteredOrders}
                   columns={columns}
+                  defaultSortKey="createdAt"
+                  defaultSortDirection="desc"
                   onView={setSelectedOrder}
                   onEdit={handleEditClick}
                   onDelete={role === 'admin' ? handleDelete : undefined}

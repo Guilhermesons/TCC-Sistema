@@ -14,6 +14,20 @@ import { Label } from '@/components/ui/label'
 import { Client } from '@/lib/types'
 import { Loader2, UserRound } from 'lucide-react'
 
+
+export function formatPhoneBR(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (!digits) return ''
+  if (digits.length <= 2) return `(${digits}`
+  const ddd = digits.slice(0, 2)
+  const number = digits.slice(2)
+  if (digits.length <= 6) return `(${ddd}) ${number}`
+  if (digits.length <= 10) {
+    return `(${ddd}) ${number.slice(0, 4)}-${number.slice(4)}`
+  }
+  return `(${ddd}) ${number.slice(0, 5)}-${number.slice(5)}`
+}
+
 interface ClientFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -29,7 +43,7 @@ export function ClientForm({ open, onOpenChange, client, onSave }: ClientFormPro
     if (client) {
       setFormData({
         name: client.name,
-        phone: client.phone,
+        phone: formatPhoneBR(client.phone),
         email: client.email,
         address: client.address,
       })
@@ -80,8 +94,10 @@ export function ClientForm({ open, onOpenChange, client, onSave }: ClientFormPro
               <Input
                 id="phone"
                 value={formData.phone}
-                onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                onChange={(event) => setFormData({ ...formData, phone: formatPhoneBR(event.target.value) })}
                 placeholder="(00) 00000-0000"
+                inputMode="numeric"
+                maxLength={15}
                 required
                 className="h-11 border-border/75 bg-background/45"
               />

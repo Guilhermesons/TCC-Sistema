@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Cliente, Equipamento, OrdemServico
 
@@ -45,13 +46,15 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     )
     equipmentName = serializers.ReadOnlyField(source='equipment.name')
     basePrice = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    startedAt = serializers.DateTimeField(read_only=True)
+    completedAt = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = OrdemServico
         fields = [
             'id', 'clientId', 'clientName', 'equipmentId', 'equipmentName',
             'problemDescription', 'category', 'basePrice', 'status', 'price',
-            'serviceDone', 'createdAt', 'updatedAt'
+            'serviceDone', 'createdAt', 'updatedAt', 'startedAt', 'completedAt'
         ]
 
     def validate_category(self, value):
@@ -66,9 +69,18 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         category = validated_data.get('category') or 'diagnostic'
         base_price = SERVICE_CATEGORY_PRICES.get(category, Decimal('80.00'))
+        status = validated_data.get('status', 'open')
+        now = timezone.now()
+
         validated_data['category'] = category
         validated_data['basePrice'] = base_price
         validated_data['price'] = base_price
+
+        if status in ('in-progress', 'completed'):
+            validated_data['startedAt'] = now
+        if status == 'completed':
+            validated_data['completedAt'] = now
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -76,8 +88,19 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
         if new_category and new_category != instance.category and new_category in SERVICE_CATEGORY_PRICES:
             new_base_price = SERVICE_CATEGORY_PRICES[new_category]
             validated_data['basePrice'] = new_base_price
-            # Enquanto a OS ainda está aberta, alterar a categoria redefine também
-            # o preço inicial. Em atendimento/concluída, preservamos o valor final.
             if instance.status == 'open':
                 validated_data['price'] = new_base_price
+
+        old_status = instance.status
+        new_status = validated_data.get('status', old_status)
+        now = timezone.now()
+
+        if new_status in ('in-progress', 'completed') and old_status == 'open' and not instance.startedAt:
+            validated_data['startedAt'] = now
+
+        if new_status == 'completed' and old_status != 'completed' and not instance.completedAt:
+            if not instance.startedAt and 'startedAt' not in validated_data:
+                validated_data['startedAt'] = now
+            validated_data['completedAt'] = now
+
         return super().update(instance, validated_data)

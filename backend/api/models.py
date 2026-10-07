@@ -46,3 +46,5 @@ class OrdemServico(models.Model):
     equipment = models.ForeignKey(Equipamento, on_delete=models.CASCADE)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
+    startedAt = models.DateTimeField(blank=True, null=True)
+    completedAt = models.DateTimeField(blank=True, null=True)

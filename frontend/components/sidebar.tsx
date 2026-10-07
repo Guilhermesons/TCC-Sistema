@@ -6,8 +6,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { GlobalSearch } from '@/components/global-search'
 import {
+  ChevronDown,
   ChevronRight,
   ClipboardList,
+  Database,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,8 +21,7 @@ import {
   X,
 } from 'lucide-react'
 
-const navigation = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'tecnico'] },
+const cadastroItems = [
   { title: 'Clientes', href: '/clientes', icon: Users, roles: ['admin'] },
   { title: 'Equipamentos', href: '/equipamentos', icon: Monitor, roles: ['admin'] },
   { title: 'Ordens de Serviço', href: '/ordens', icon: ClipboardList, roles: ['admin', 'tecnico'] },
@@ -32,6 +33,8 @@ export function Sidebar() {
   const [role, setRole] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const cadastroRouteActive = cadastroItems.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+  const [cadastrosOpen, setCadastrosOpen] = useState(cadastroRouteActive)
 
   useEffect(() => {
     setRole(localStorage.getItem('user_role'))
@@ -50,10 +53,11 @@ export function Sidebar() {
 
   useEffect(() => {
     setMobileOpen(false)
-  }, [pathname])
+    if (cadastroRouteActive) setCadastrosOpen(true)
+  }, [pathname, cadastroRouteActive])
 
-  const items = useMemo(
-    () => navigation.filter((item) => !role || item.roles.includes(role)),
+  const cadastroNavigation = useMemo(
+    () => cadastroItems.filter((item) => !role || item.roles.includes(role)),
     [role],
   )
 
@@ -63,6 +67,8 @@ export function Sidebar() {
     localStorage.removeItem('user_role')
     router.push('/')
   }
+
+  const dashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
 
   return (
     <>
@@ -129,40 +135,74 @@ export function Sidebar() {
 
           <p className="mb-2 px-3 text-[9px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/30">Navegação</p>
           <nav className="space-y-1">
-            {items.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'group relative flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all',
-                    isActive
-                      ? 'bg-primary/[0.085] text-sidebar-foreground'
-                      : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
-                  )}
-                >
-                  {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary shadow-[0_0_10px_currentColor]" />}
-                  <span
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                      isActive ? 'bg-primary/10 text-primary' : 'bg-white/[0.025] text-sidebar-foreground/55 group-hover:text-primary',
-                    )}
-                  >
-                    <item.icon className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="flex-1">{item.title}</span>
-                  <ChevronRight
-                    className={cn(
-                      'h-4 w-4 transition-all',
-                      isActive
-                        ? 'translate-x-0 text-primary/70 opacity-100'
-                        : '-translate-x-1 text-sidebar-foreground/25 opacity-0 group-hover:translate-x-0 group-hover:opacity-100',
-                    )}
-                  />
-                </Link>
-              )
-            })}
+            <Link
+              href="/dashboard"
+              className={cn(
+                'group relative flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all',
+                dashboardActive
+                  ? 'bg-primary/[0.085] text-sidebar-foreground'
+                  : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
+              )}
+            >
+              {dashboardActive && <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-primary shadow-[0_0_10px_currentColor]" />}
+              <span className={cn(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                dashboardActive ? 'bg-primary/10 text-primary' : 'bg-white/[0.025] text-sidebar-foreground/55 group-hover:text-primary',
+              )}>
+                <LayoutDashboard className="h-[18px] w-[18px]" />
+              </span>
+              <span className="flex-1">Dashboard</span>
+              <ChevronRight className={cn('h-4 w-4 transition-all', dashboardActive ? 'text-primary/70 opacity-100' : 'opacity-0 group-hover:opacity-70')} />
+            </Link>
+
+            <div className={cn('rounded-xl transition-colors', cadastroRouteActive && 'bg-white/[0.018]')}>
+              <button
+                type="button"
+                onClick={() => setCadastrosOpen((current) => !current)}
+                className={cn(
+                  'group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all',
+                  cadastroRouteActive
+                    ? 'text-sidebar-foreground'
+                    : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
+                )}
+                aria-expanded={cadastrosOpen}
+              >
+                {cadastroRouteActive && <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-primary shadow-[0_0_10px_currentColor]" />}
+                <span className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                  cadastroRouteActive ? 'bg-primary/10 text-primary' : 'bg-white/[0.025] text-sidebar-foreground/55 group-hover:text-primary',
+                )}>
+                  <Database className="h-[18px] w-[18px]" />
+                </span>
+                <span className="flex-1 text-left">Cadastros</span>
+                <ChevronDown className={cn('h-4 w-4 transition-transform', cadastrosOpen && 'rotate-180', cadastroRouteActive ? 'text-primary/70' : 'text-sidebar-foreground/30')} />
+              </button>
+
+              {cadastrosOpen && (
+                <div className="ml-[26px] mt-1 space-y-1 border-l border-sidebar-border/55 pl-3">
+                  {cadastroNavigation.map((item) => {
+                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all',
+                          active
+                            ? 'bg-primary/[0.075] text-sidebar-foreground'
+                            : 'text-sidebar-foreground/50 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
+                        )}
+                      >
+                        <Icon className={cn('h-4 w-4', active ? 'text-primary' : 'text-sidebar-foreground/40 group-hover:text-primary')} />
+                        <span className="flex-1">{item.title}</span>
+                        {active && <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_currentColor]" />}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 

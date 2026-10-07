@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -9,12 +10,18 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Database, Eye, Pencil, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Database, Eye, Pencil, Trash2 } from 'lucide-react'
 
-interface Column<T> {
+type SortDirection = 'asc' | 'desc'
+
+type SortableValue = string | number | Date | null | undefined
+
+export interface Column<T> {
   key: keyof T | string
   header: string
   render?: (item: T) => React.ReactNode
+  sortable?: boolean
+  sortValue?: (item: T) => SortableValue
 }
 
 interface DataTableProps<T> {
@@ -28,6 +35,21 @@ interface DataTableProps<T> {
   deleteLabel?: string
   emptyTitle?: string
   emptyDescription?: string
+  defaultSortKey?: string
+  defaultSortDirection?: SortDirection
+}
+
+function normalizeSortValue(value: SortableValue): string | number {
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  if (value == null) return ''
+
+  const maybeDate = Date.parse(String(value))
+  if (/^\d{4}-\d{2}-\d{2}T/.test(String(value)) && !Number.isNaN(maybeDate)) {
+    return maybeDate
+  }
+
+  return String(value).toLocaleLowerCase('pt-BR')
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -41,13 +63,56 @@ export function DataTable<T extends { id: string | number }>({
   deleteLabel = 'Excluir registro',
   emptyTitle = 'Nenhum registro encontrado',
   emptyDescription = 'Os dados cadastrados aparecerão aqui.',
+  defaultSortKey,
+  defaultSortDirection = 'asc',
 }: DataTableProps<T>) {
+  const [sortKey, setSortKey] = useState<string | null>(defaultSortKey ?? null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection)
+
+  const getRawValue = (item: T, column: Column<T>): SortableValue => {
+    if (column.sortValue) return column.sortValue(item)
+    return item[column.key as keyof T] as SortableValue
+  }
+
+  const sortedData = useMemo(() => {
+    if (!sortKey) return data
+    const column = columns.find((item) => String(item.key) === sortKey)
+    if (!column || !column.sortable) return data
+
+    return [...data].sort((a, b) => {
+      const aValue = normalizeSortValue(getRawValue(a, column))
+      const bValue = normalizeSortValue(getRawValue(b, column))
+
+      let result = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        result = aValue - bValue
+      } else {
+        result = String(aValue).localeCompare(String(bValue), 'pt-BR', {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      }
+      return sortDirection === 'asc' ? result : -result
+    })
+  }, [columns, data, sortDirection, sortKey])
+
   const getCellValue = (item: T, column: Column<T>) => {
     if (column.render) return column.render(item)
 
     const value = item[column.key as keyof T]
     if (value instanceof Date) return value.toLocaleDateString('pt-BR')
     return String(value ?? '')
+  }
+
+  const handleSort = (column: Column<T>) => {
+    if (!column.sortable) return
+    const key = String(column.key)
+    if (sortKey === key) {
+      setSortDirection((current) => current === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setSortKey(key)
+    setSortDirection('asc')
   }
 
   const hasActions = Boolean(onView || onEdit || onDelete)
@@ -58,14 +123,33 @@ export function DataTable<T extends { id: string | number }>({
         <Table>
           <TableHeader>
             <TableRow className="border-border/70 bg-secondary/35 hover:bg-secondary/35">
-              {columns.map((column) => (
-                <TableHead
-                  key={String(column.key)}
-                  className="h-11 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80"
-                >
-                  {column.header}
-                </TableHead>
-              ))}
+              {columns.map((column) => {
+                const active = sortKey === String(column.key)
+                return (
+                  <TableHead
+                    key={String(column.key)}
+                    className="h-11 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80"
+                  >
+                    {column.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSort(column)}
+                        className="group inline-flex items-center gap-1.5 rounded-md py-1 text-left transition-colors hover:text-foreground"
+                        title={`Ordenar por ${column.header}`}
+                      >
+                        <span>{column.header}</span>
+                        {active ? (
+                          sortDirection === 'asc'
+                            ? <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                            : <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                        ) : (
+                          <ArrowUpDown className="h-3.5 w-3.5 opacity-35 transition-opacity group-hover:opacity-80" />
+                        )}
+                      </button>
+                    ) : column.header}
+                  </TableHead>
+                )
+              })}
               {hasActions && (
                 <TableHead className="w-[136px] text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
                   Ações
@@ -75,7 +159,7 @@ export function DataTable<T extends { id: string | number }>({
           </TableHeader>
 
           <TableBody>
-            {data.length === 0 ? (
+            {sortedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length + (hasActions ? 1 : 0)} className="h-44 text-center">
                   <div className="mx-auto flex max-w-xs flex-col items-center justify-center text-muted-foreground">
@@ -88,7 +172,7 @@ export function DataTable<T extends { id: string | number }>({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((item) => {
+              sortedData.map((item) => {
                 const deleteAllowed = canDelete ? canDelete(item) : true
 
                 return (

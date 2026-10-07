@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import api from '@/services/api'
 import { Sidebar } from '@/components/sidebar'
 import { DataTable } from '@/components/data-table'
-import { ClientForm } from '@/components/client-form'
+import { ClientForm, formatPhoneBR } from '@/components/client-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -118,6 +118,8 @@ export default function ClientsPage() {
     {
       key: 'name',
       header: 'Cliente',
+      sortable: true,
+      sortValue: (client: Client) => client.name,
       render: (client: Client) => (
         <div>
           <p className="font-medium text-foreground">{client.name}</p>
@@ -125,11 +127,13 @@ export default function ClientsPage() {
         </div>
       ),
     },
-    { key: 'phone', header: 'Telefone' },
-    { key: 'address', header: 'Endereço' },
+    { key: 'phone', header: 'Telefone', sortable: true, sortValue: (client: Client) => client.phone, render: (client: Client) => <span className="whitespace-nowrap">{formatPhoneBR(client.phone)}</span> },
+    { key: 'address', header: 'Endereço', sortable: true, sortValue: (client: Client) => client.address },
     {
       key: 'activity',
       header: 'Atividade',
+      sortable: true,
+      sortValue: (client: Client) => orders.filter((order) => String(order.clientId) === String(client.id) || order.clientName === client.name).length,
       render: (client: Client) => {
         const equipmentCount = equipments.filter((equipment) => String(equipment.clientId) === String(client.id) || equipment.clientName === client.name).length
         const orderCount = orders.filter((order) => String(order.clientId) === String(client.id) || order.clientName === client.name).length
@@ -204,7 +208,7 @@ export default function ClientsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="ml-64 p-6 lg:p-8 xl:p-10">
+      <main className="p-4 pt-20 md:ml-64 md:p-6 lg:p-8 xl:p-10">
         <div className="mx-auto w-full max-w-[1500px]">
           <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -247,6 +251,8 @@ export default function ClientsPage() {
                 <DataTable
                   data={filteredClients}
                   columns={columns}
+                  defaultSortKey="name"
+                  defaultSortDirection="asc"
                   onView={setSelectedClient}
                   onEdit={(client) => { setEditingClient(client); setFormOpen(true) }}
                   onDelete={handleDelete}

@@ -32,6 +32,8 @@ export interface ServiceOrder {
   status: 'open' | 'in-progress' | 'completed'
   createdAt: Date | string
   updatedAt: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
   price?: number | string | null
   serviceDone?: string | null
 }

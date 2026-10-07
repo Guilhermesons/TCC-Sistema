@@ -120,6 +120,8 @@ export default function EquipmentPage() {
     {
       key: 'name',
       header: 'Equipamento',
+      sortable: true,
+      sortValue: (equipment: Equipment) => `${equipment.brand} ${equipment.model} ${equipment.name}`,
       render: (equipment: Equipment) => (
         <div>
           <p className="font-medium text-foreground">{equipment.brand} {equipment.model}</p>
@@ -127,10 +129,12 @@ export default function EquipmentPage() {
         </div>
       ),
     },
-    { key: 'clientName', header: 'Cliente' },
+    { key: 'clientName', header: 'Cliente', sortable: true, sortValue: (equipment: Equipment) => equipment.clientName },
     {
       key: 'history',
       header: 'Histórico',
+      sortable: true,
+      sortValue: (equipment: Equipment) => orders.filter((order) => String(order.equipmentId) === String(equipment.id) || order.equipmentName === equipment.name).length,
       render: (equipment: Equipment) => {
         const count = orders.filter((order) => String(order.equipmentId) === String(equipment.id) || order.equipmentName === equipment.name).length
         return <span className="text-xs text-muted-foreground">{count} {count === 1 ? 'ordem' : 'ordens'}</span>
@@ -203,7 +207,7 @@ export default function EquipmentPage() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="ml-64 p-6 lg:p-8 xl:p-10">
+      <main className="p-4 pt-20 md:ml-64 md:p-6 lg:p-8 xl:p-10">
         <div className="mx-auto w-full max-w-[1500px]">
           <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -257,6 +261,8 @@ export default function EquipmentPage() {
                 <DataTable
                   data={filteredEquipments}
                   columns={columns}
+                  defaultSortKey="name"
+                  defaultSortDirection="asc"
                   onView={setSelectedEquipment}
                   onEdit={(equipment) => { setEditingEquipment(equipment); setInitialClientId(''); setFormOpen(true) }}
                   onDelete={handleDelete}
